@@ -120,7 +120,7 @@ if st.button('Run QLattice'):
         if data[f].dtype =='object':
             stypes[f] = 'c'
     
-    qg = ql.get_classifier(data.columns, target, stypes=stypes, max_depth=max_depth)
+    qg = ql.get_classifier(data.columns, target, stypes=stypes, max_depth=max_depth, qlattice="f6d18b7a", api_token="09805a3cda064c299c220e8d5984c40c")
     
     #st.write("Progress")
     my_bar = st.progress(0)
