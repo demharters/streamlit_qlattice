@@ -60,7 +60,7 @@ def get_description(d):
     return(my_text)
 
 # Header
-image = Image.open("/Users/demharters/git/streamlit_feyn/images/qlattice.jpg")
+image = Image.open("images/qlattice.jpg")
 st.image(image)
 
 st.title('Omics data and the QLattice:')
