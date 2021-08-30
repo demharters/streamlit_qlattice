@@ -10,6 +10,9 @@ import time
 import streamlit.components.v1 as components
 from PIL import Image
 
+# newest algorithm
+feyn._qlattice._USE_V2_API = True
+
 # Run the QLattice
 
 def render_svg(svg):
@@ -84,8 +87,8 @@ with st.beta_expander("Data description"):
 
 # QLattice Settings
 with st.beta_expander("Settings"):
-    max_depth = st.slider("Number of Layers", min_value=1, max_value=6, value = 3)
-    n_iter = st.slider("Number of Iterations", min_value=1, max_value=20, value = 3)
+    max_complexity = st.slider("Number of Layers", min_value=1, max_value=6, value = 3)
+    n_epochs = st.slider("Number of Iterations", min_value=1, max_value=20, value = 8)
 
 # Spacer
 st.text("  ")
@@ -111,7 +114,7 @@ if st.button('Run QLattice'):
     time.sleep(1)
     # Run the qlattice
     model_iter_holder.write("Firing up the QLattice ..")
-    ql = feyn.QLattice()
+    ql = feyn.connect_qlattice()
     ql.reset(random_seed)
     
     # Declaring categorical features
@@ -120,44 +123,69 @@ if st.button('Run QLattice'):
         if data[f].dtype =='object':
             stypes[f] = 'c'
     
-    qg = ql.get_classifier(data.columns, target, stypes=stypes, max_depth=max_depth)
-    
-    #st.write("Progress")
-    my_bar = st.progress(0)
-    model_graph_holder = st.empty()
-    
     model_iter_holder.write("Start Training ..")
     time.sleep(1)
+    #models = ql.auto_run(train, target, stypes = stypes, max_complexity = max_complexity)
+    
+    #st.write("Progress")
+    #my_bar = st.progress(0)
+    model_graph_holder = st.empty()
+
+    #n_epochs = 5
+    
+    models = []
+
+    for epoch in range(n_epochs):
+        # Sample models from the QLattice, and add them to the list
+        models += ql.sample_models(train.columns, target, 'classification', max_complexity = max_complexity)
+    
+        # Fit the list of models. Returns a list of models sorted by loss or criterion.
+        models = feyn.fit_models(models, train, 'binary_cross_entropy')
+    
+        # Remove redundant and poorly performing models from the list
+        models = feyn.prune_models(models)
+    
+        # Find the 10 best and sufficiently diverse models
+        best_models = feyn.best_diverse_models(models)
+    
+        # Display the best model in the current epoch
+        feyn.show_model(best_models[0], label=f"Epoch: {epoch}", update_display=True)
+    
+        model_graph_holder.markdown(render_svg(models[0]._repr_svg_()),unsafe_allow_html=True)
+        model_iter_holder.write(f"Iteration:{epoch+1}/{n_epochs}")
+        
+        ql.update(best_models)
+    
     #n_iter = 2
-    for i in range(n_iter):
-        qg.fit(train, threads=8, show=None)
-        model_graph_holder.markdown(render_svg(qg[0]._repr_svg_()),unsafe_allow_html=True)
-        model_iter_holder.write(f"Iteration:{i+1}/{n_iter}")
-        ql.update(qg.best())
-        my_bar.progress(i/n_iter + 1/n_iter)
+    #for i in range(n_iter):
+    #    qg.fit(train, threads=8, show=None)
+    #    model_graph_holder.markdown(render_svg(qg[0]._repr_svg_()),unsafe_allow_html=True)
+    #    model_iter_holder.write(f"Iteration:{i+1}/{n_iter}")
+    #    ql.update(qg.best())
+    #    my_bar.progress(i/n_iter + 1/n_iter)
     
     model_iter_holder.write("Done")
 
     with st.beta_expander("Model Validation on the Training Data"):
         # Plot Summary
-        components.html(qg[0].plot_summary(train)._repr_html_(), height = 300, width = 800)
+        components.html(models[0].plot(train)._repr_html_(), height = 600, width = 800)
     
-        col1, col2 = st.beta_columns(2)
-        fig_roc, ax = plt.subplots()
-        qg[0].plot_roc_curve(train)
-        col1.pyplot(fig_roc)
-        fig_confusion, ax = plt.subplots()
-        qg[0].plot_confusion_matrix(train)
-        col2.pyplot(fig_confusion)
+        #col1, col2 = st.beta_columns(2)
+        #fig_roc, ax = plt.subplots()
+        #models[0].plot_roc_curve(train)
+        #col1.pyplot(fig_roc)
+        #fig_confusion, ax = plt.subplots()
+        #models[0].plot_confusion_matrix(train)
+        #col2.pyplot(fig_confusion)
 
     with st.beta_expander("Model Validation on the Test Data"):
         # Plot Summary
-        components.html(qg[0].plot_summary(test)._repr_html_(), height = 300, width = 800)
+        components.html(models[0].plot(test)._repr_html_(), height = 600, width = 800)
     
-        col1, col2 = st.beta_columns(2)
-        fig_roc, ax = plt.subplots()
-        qg[0].plot_roc_curve(test)
-        col1.pyplot(fig_roc)
-        fig_confusion, ax = plt.subplots()
-        qg[0].plot_confusion_matrix(test)
-        col2.pyplot(fig_confusion)
+        #col1, col2 = st.beta_columns(2)
+        #fig_roc, ax = plt.subplots()
+        #models[0].plot_roc_curve(test)
+        #col1.pyplot(fig_roc)
+        #fig_confusion, ax = plt.subplots()
+        #models[0].plot_confusion_matrix(test)
+        #col2.pyplot(fig_confusion)
